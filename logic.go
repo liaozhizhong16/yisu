@@ -31,6 +31,9 @@ const (
 )
 */
 
+const MONTH_SECOND = 60*60*24*30
+const DAY_SECOND = 60*60*24*7
+
 type Data struct {
 	Domain      string `json:"domain"` //请求获取RequestHost domain
 	Time        string `json:"create_time"`
@@ -52,7 +55,10 @@ type MyLogic struct {
 }
 
 func NewMyLocic(config_path string, registry prometheus.Gatherer, gather func(prometheus.Gatherer) string) *MyLogic {
-	var read_config_t int16
+	var read_config_t int32
+	var gather_t int32
+	gather_t = 15
+	read_config_t = gather_t
 	mylogic := &MyLogic{ConfigPath: config_path}
 	mylogic.InitLog() //初始化log
 	uuid, _ := get_uuid()
@@ -60,13 +66,47 @@ func NewMyLocic(config_path string, registry prometheus.Gatherer, gather func(pr
 	mylogic.info.Log("uuid", uuid)
 LOOP:
 	mylogic.Init() //初始化
-	read_config_t = 0
-
 	for true {
-		mylogic.PostProme(registry, gather)
-		time.Sleep(time.Duration(5) * time.Second)
-		read_config_t += 5
-		if read_config_t > 10 {
+		//收集数据
+		if read_config_t % gather_t ==0{
+			mylogic.PostProme(registry, gather)
+		}
+		if read_config_t > MONTH_SECOND{
+			read_config_t=0
+		}
+		time.Sleep(time.Duration(1) * time.Second)
+		read_config_t += 1
+		//重新读取配置文件
+		if  read_config_t % 30 ==0 {
+			goto LOOP
+		}
+	}
+	return mylogic
+}
+func NewWindowsLocic(config_path string, gather func() string) *MyLogic {
+	var read_config_t int32
+	var gather_t int32
+	gather_t = 15
+	read_config_t = gather_t
+	mylogic := &MyLogic{ConfigPath: config_path}
+	mylogic.InitLog() //初始化log
+	uuid, _ := get_uuid()
+	mylogic.UUID = uuid
+	mylogic.info.Log("uuid", uuid)
+LOOP:
+	mylogic.Init() //初始化
+	for true {
+		//收集数据
+		if read_config_t % gather_t ==0{
+			mylogic.PostWindowsProme( gather)
+		}
+		if read_config_t > MONTH_SECOND{
+			read_config_t=0
+		}
+		time.Sleep(time.Duration(1) * time.Second)
+		read_config_t += 1
+		//重新读取配置文件
+		if  read_config_t % 30 ==0 {
 			goto LOOP
 		}
 	}
@@ -87,8 +127,29 @@ func (logic *MyLogic) PostProme(registry prometheus.Gatherer, gather func(promet
 			logic.debug.Log("PostProme", err)
 		} else {
 			defer resp.Body.Close()
-			body, _ := ioutil.ReadAll(resp.Body)
-			logic.debug.Log("PostProme", body)
+			//body, _ := ioutil.ReadAll(resp.Body)
+			//logic.debug.Log("PostProme", body)
+		}
+
+		logic.debug.Log("PostProme", gather_data)
+	}
+}
+func (logic *MyLogic) PostWindowsProme( gather func() string) {
+	if len(logic.RequestHost) > 0 {
+		//收集数据请求到缓存服务器
+		gather_data := gather()
+		params := url.Values{}
+		params.Set("uuid", logic.UUID)
+		params.Set("data", gather_data)
+		params.Set("js", "exporter")
+		//params= url.Values{"key": {"Value"}, "id": {"123"}}
+		resp, err := http.PostForm(logic.RequestHost, params)
+		if err != nil {
+			logic.debug.Log("PostProme", err)
+		} else {
+			defer resp.Body.Close()
+			//body, _ := ioutil.ReadAll(resp.Body)
+			//logic.debug.Log("PostProme", body)
 		}
 
 		logic.debug.Log("PostProme", gather_data)
@@ -197,3 +258,4 @@ func (logic *MyLogic) ReadConfig() {
 	}
 
 }
+
