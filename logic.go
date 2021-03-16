@@ -38,6 +38,7 @@ type Data struct {
 	Domain      string `json:"domain"` //请求获取RequestHost domain
 	Time        string `json:"create_time"`
 	RequestHost string `json:"request_host"` //数据存放地址
+	Uuid        string `json:"uuid"`
 }
 type ResponseData struct {
 	Result     string `json:"result"`
@@ -251,6 +252,8 @@ func (logic *MyLogic) ReadConfig() {
 		} else {
 			logic.Domain = config_data.Domain
 			logic.RequestHost = config_data.RequestHost
+			logic.UUID = config_data.Uuid
+			logic.debug.Log("ReadConfig", "UUID="+config_data.Uuid)
 			logic.debug.Log("ReadConfig", "Domain="+config_data.Domain)
 			logic.debug.Log("ReadConfig", "Time="+config_data.Time)
 			logic.debug.Log("ReadConfig", "RequestHost="+config_data.RequestHost)
